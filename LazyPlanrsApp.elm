@@ -1,12 +1,13 @@
-module LazyPlanrsApp exposing (..)
-
 import Html.App as Html
 import Html exposing (..)
-import Html.Attributes exposing (..)
-import Html.Events exposing (..)
+import Svg as Svg exposing (..)
+import Svg.Attributes exposing (..)
+import Svg.Events exposing (..)
+import Window exposing (..)
 
 import Date exposing (Date)
 import Result
+import Task
 import Time
 
 import Debug exposing (log)
@@ -39,102 +40,100 @@ type alias Objective =
     , initiatives : List Initiative
     }
 
-type alias Swimlane =
-    { name : String
-    , objectives : List Objective
-    }
-
 type alias Model =
-    { swimlanes : List Swimlane
+    { objectives : List Objective
     , now_date : Date
+    , window_size : Window.Size
     }
 
 -- Update
 
 type Msg =
-    AddSwimlane
+    AddObjective
     | Sync
+    | Resize Window.Size
+    | Fail
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg |> log "Msg" of
-        AddSwimlane ->
-            ( { model | swimlanes = model.swimlanes ++ [{name = "Bogus", objectives = [] }] }, Cmd.none )
+        AddObjective ->
+            ( { model | objectives = model.objectives ++ [{name = "Bogus", initiatives = [] }] }, Cmd.none )
 
         Sync ->
             ( model, Cmd.none )
+
+        Resize size ->
+            ( model, Cmd.none )
+
+        Fail ->
+            ( model, Cmd.none )
+
 -- View
 
 view : Model -> Html Msg
 view model =
     div [] [
         div [ class "tools", id "toolbar" ][
-            span [][ text (toString model.now_date)]
-            , button [ onClick AddSwimlane ][ text "Add Swimlane" ]
-            , button [ onClick Sync ][ text "Sync" ]
+            span [][ Html.text (toString model.now_date)]
+            , button [ onClick AddObjective ][ Html.text "Add Objective" ]
+            , button [ onClick Sync ][ Html.text "Sync" ]
         ]
-        , div [] [ swimlaneList model.swimlanes ]
-        , div [][
-            code [][ text (toString model) ]
+        , Svg.svg [ Svg.Attributes.width "100%", Svg.Attributes.height <| toString <| List.length model.objectives * 25 + 50 ][
+            backgroundRow model.objectives
+            , barList model.objectives
+            , legendRow model.objectives
+        ]
+        , aside [][
+            code [][ Html.text (toString model) ]
+            , pre [][ Html.text (toString Window.Size) ]
         ]
     ]
 
-swimlaneList : List Swimlane -> Html Msg
-swimlaneList swimlanes =
-    div [][
-        div [] (List.map (swimlaneItem) swimlanes)
+barList : List Objective -> Svg Msg
+barList list =
+    Svg.g [] (List.indexedMap barItem list)
+
+
+barItem : Int -> Objective -> Svg Msg
+barItem ix item =
+    Svg.rect [ x "320", Svg.Attributes.width "100", Svg.Attributes.height "25"
+                , rx "5", ry "5", fill "#c6dafc", y <| toString <| (ix + 1) * 30 ][]
+
+
+backgroundRow : List Objective -> Svg Msg
+backgroundRow list =
+    Svg.g[] (List.indexedMap backgroundCell list)
+
+
+backgroundCell : Int -> Objective -> Svg Msg
+backgroundCell ix item =
+    Svg.g [][
+        Svg.rect [ Svg.Attributes.width "100%", x "0", fill "#efefef", y <| toString <| (ix + 1) * 30 ][]
+        , Svg.line [ x1 "0", x2 "100%", fill "none", stroke "#0e0e0e", y1 <| toString <| (ix + 1) * 30
+            ,y2 <| toString <| (ix + 1) * 30 ][]
     ]
 
-swimlaneItem : Swimlane -> Html Msg
-swimlaneItem swimlane =
-    div [ class "swimlane" ][
-        div [][
-            button [][ text "Edit Name" ]
-        ]
-        , div [][ text swimlane.name ]
-        , div [ class "objectives" ][ objectiveList swimlane.objectives ]
-    ]
 
-objectiveList : List Objective -> Html Msg
-objectiveList objectives =
-    div [] (List.map (objectiveItem) objectives)
+legendRow : List Objective -> Svg Msg
+legendRow list =
+    Svg.g [] (List.indexedMap legendCell list)
 
-objectiveItem : Objective -> Html Msg
-objectiveItem objective =
-    div [ class "objective" ] [
-        div [][
-            button [][ text "Edit Name"]
-        ]
-        , div [] [ text objective.name ]
-        , div [ class "initiatives" ] [ initiativeList objective.initiatives ]
-    ]
 
-initiativeList : List Initiative -> Html Msg
-initiativeList initiatives =
-    div [ class "initiative" ] (List.map (initiativeItem) initiatives)
+legendCell : Int -> Objective -> Svg Msg
+legendCell ix item =
+    Svg.text' [ x "10", y <| toString <| (ix + 1) * 25 ][ Svg.text item.name ]
 
-initiativeItem : Initiative -> Html Msg
-initiativeItem initiative =
-    div [][
-        div [][
-            button [][ text "Edit Initiative" ]
-        ]
-        , div [][ text initiative.name ]
-        , div [][ text (toString initiative.startdate) ]
-        , div [][ text (toString initiative.duration) ]
-        , div [][ text (toString initiative.business_value) ]
-        , div [][ text (toString initiative.developer_effort) ]
-        , div [][ text (toString initiative.owner) ]
-        , div [][ text (toString (List.length initiative.features)) ]
-    ]
 
 -- Subscriptions
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    Sub.none
+    Sub.batch [ Window.resizes Resize ]
 
 -- Init
+
+-- Data seed
 
 objectives : List Objective
 objectives =
@@ -144,18 +143,19 @@ objectives =
             owner = Just "kn@unisport.dk", features = [({ name = "Green Button", description = Nothing})] })
         , ({ name = "Define the idea", startdate = parseDate "2016-10-10",
             duration = Nothing, business_value = Just 5, developer_effort = Just 8,
-            owner = Just "kn@unisport.dk", features = [] })
+            owner = Just "kn@unisport.dk", features = [{ name = "Blue button", description = Just "I can click it" }] })
         ] })
     , ({ name = "Do something else", initiatives = [] })
     ]
 
-swimlanes : List Swimlane
-swimlanes =
-    [{ name = "IT", objectives = objectives }]
 
 init : ( Model, Cmd Msg )
 init =
-    ( { swimlanes = swimlanes, now_date = (Date.fromTime Time.millisecond) }, Cmd.none )
+    ( { objectives = objectives
+        , now_date = (Date.fromTime Time.millisecond)
+        , window_size = (Window.Size 0 0)}
+    , Task.perform (\_ -> Fail) (\x -> Resize x) Window.size
+    )
 
 -- Main
 
