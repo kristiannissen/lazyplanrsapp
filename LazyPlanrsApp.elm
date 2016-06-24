@@ -1,3 +1,5 @@
+module LazyPlanrsApp exposing (..)
+
 import Html.App as Html
 import Html exposing (..)
 import Svg as Svg exposing (..)
@@ -53,6 +55,7 @@ type Msg =
     | Sync
     | Resize Window.Size
     | Fail
+    | EditObjective String
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
@@ -68,6 +71,10 @@ update msg model =
 
         Fail ->
             ( model, Cmd.none )
+
+        EditObjective name ->
+            ( model, Cmd.none )
+
 
 -- View
 
@@ -98,7 +105,7 @@ barList list =
 barItem : Int -> Objective -> Svg Msg
 barItem ix item =
     Svg.rect [ x "320", Svg.Attributes.width "100", Svg.Attributes.height "25"
-                , rx "5", ry "5", fill "#c6dafc", y <| toString <| (ix + 1) * 30 ][]
+                , rx "5", ry "5", fill "#c6dafc", y <| toString <| (ix * 30) + 2 ][]
 
 
 backgroundRow : List Objective -> Svg Msg
@@ -109,9 +116,9 @@ backgroundRow list =
 backgroundCell : Int -> Objective -> Svg Msg
 backgroundCell ix item =
     Svg.g [][
-        Svg.rect [ Svg.Attributes.width "100%", x "0", fill "#efefef", y <| toString <| (ix + 1) * 30 ][]
-        , Svg.line [ x1 "0", x2 "100%", fill "none", stroke "#0e0e0e", y1 <| toString <| (ix + 1) * 30
-            ,y2 <| toString <| (ix + 1) * 30 ][]
+        Svg.rect [ Svg.Attributes.width "100%", x "0", fill "#f5f5f5", y <| toString <| (ix + 1) * 30 ][]
+        , Svg.line [ x1 "0", x2 "100%", fill "none", stroke "#e0e0e0", y1 <| toString <| (ix + 1) * 30
+            ,y2 <| toString <| (ix + 1) * 30, strokeWidth "1" ][]
     ]
 
 
