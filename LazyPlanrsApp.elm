@@ -20,6 +20,10 @@ parseDate : String -> Maybe Date
 parseDate str =
     Result.toMaybe (Date.fromString str)
 
+formatDate : Date -> String
+formatDate date =
+    toString date
+
 -- Models
 
 type alias Feature =
@@ -45,7 +49,6 @@ type alias Objective =
 type alias Model =
     { objectives : List Objective
     , now_date : Date
-    , window_size : Window.Size
     }
 
 -- Update
@@ -53,9 +56,9 @@ type alias Model =
 type Msg =
     AddObjective
     | Sync
-    | Resize Window.Size
     | Fail
     | EditObjective String
+    | CurrentDate Date
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
@@ -66,8 +69,8 @@ update msg model =
         Sync ->
             ( model, Cmd.none )
 
-        Resize size ->
-            ( model, Cmd.none )
+        CurrentDate date ->
+            ( { model | now_date = date }, Cmd.none )
 
         Fail ->
             ( model, Cmd.none )
@@ -82,7 +85,7 @@ view : Model -> Html Msg
 view model =
     div [] [
         div [ class "tools", id "toolbar" ][
-            span [][ Html.text (toString model.now_date)]
+            span [][ Html.text <| log "date" (formatDate model.now_date) ]
             , button [ onClick AddObjective ][ Html.text "Add Objective" ]
             , button [ onClick Sync ][ Html.text "Sync" ]
         ]
@@ -93,7 +96,6 @@ view model =
         ]
         , aside [][
             code [][ Html.text (toString model) ]
-            , pre [][ Html.text (toString Window.Size) ]
         ]
     ]
 
@@ -136,7 +138,7 @@ legendCell ix item =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    Sub.batch [ Window.resizes Resize ]
+    Sub.none
 
 -- Init
 
@@ -159,9 +161,8 @@ objectives =
 init : ( Model, Cmd Msg )
 init =
     ( { objectives = objectives
-        , now_date = (Date.fromTime Time.millisecond)
-        , window_size = (Window.Size 0 0)}
-    , Task.perform (\_ -> Fail) (\x -> Resize x) Window.size
+        , now_date = Date.fromTime 0 }
+    , Task.perform (\_ -> Fail) CurrentDate Date.now
     )
 
 -- Main
